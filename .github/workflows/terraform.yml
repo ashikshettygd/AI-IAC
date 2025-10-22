@@ -1,15 +1,13 @@
-# File: .github/workflows/terraform.yml
 name: Terraform CI/CD
 
 on:
-  workflow_dispatch:        # Allows manual trigger from any branch
+  workflow_dispatch:
   push:
     branches:
-      - 'dev-*'            # Trigger on branches created by your POC
+      - 'dev-*'
 
 jobs:
   terraform:
-    name: Terraform Apply
     runs-on: ubuntu-latest
 
     env:
@@ -18,29 +16,31 @@ jobs:
       AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
 
     steps:
-      - name: Checkout branch
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7  # or your preferred version
+          terraform_version: 1.5.7
 
-      - name: Select intent folder
+      - name: Detect intent folder
         id: intent
         run: |
-          # Detect which folder has main.tf
           for folder in networking compute database storage security monitoring; do
-            if [ -f "$folder/main.tf" ]; then
-              echo "folder=$folder" >> $GITHUB_OUTPUT
-              break
+            if [ -f "${folder}/main.tf" ]; then
+              echo "folder=${folder}" >> $GITHUB_OUTPUT
+              exit 0
             fi
           done
+          echo "folder=" >> $GITHUB_OUTPUT
 
       - name: Terraform Init
+        if: steps.intent.outputs.folder != ''
         working-directory: ${{ steps.intent.outputs.folder }}
         run: terraform init -input=false
 
       - name: Terraform Apply
+        if: steps.intent.outputs.folder != ''
         working-directory: ${{ steps.intent.outputs.folder }}
         run: terraform apply -auto-approve -input=false
